@@ -45,8 +45,10 @@ def preprocessLyrics(sentence):
     # stemmer=RSLPStemmer()
 
     sentence = sentence.lower()
+    # remove all the annotations (e.g '[refrão 1] Bla bla')
     sentence = re.sub(r'[\(\[].*?[\)\]]', "", str(sentence))
 
+    # get Portuguese stopwords
     file_stop = open("pt_stopwords.txt")
     body_stop = file_stop.read()
     stop = body_stop.split()
@@ -75,8 +77,6 @@ def extractLyrics(song_title, artist_name):
         if artist_name.lower() in hit['result']['primary_artist']['name'].lower():
             remote_song_info = hit
             break
-
-    # pprint.pprint(remote_song_info)
 
     # Extract lyrics from URL if song was found
     if remote_song_info:
@@ -143,6 +143,7 @@ def processSpotifyPlaylistCSV(uri, csv_filepath, song_class):
         song["song_sp_uri"] = track["uri"]
         song["song_name"] = song_name
         song["song_isrc"] = track["external_ids"]["isrc"]
+        song["song_popularity"] = track["popularity"]
         song_features = getSpotifySongFeatures(track["uri"])
 
         artist_info = getSpotifyArtistInfo(track["artists"][0]["id"])
@@ -162,7 +163,7 @@ def processSpotifyPlaylistCSV(uri, csv_filepath, song_class):
     df.to_csv(csv_filepath)
 
     return df
-    
+
 
 PROTEST_URI = 'spotify:user:gabriel_saruhashi:playlist:4Tp4QcTk9rNikjmaDg5VxJ'
 JOVEM_GUARDA_URI = 'spotify:user:gabriel_saruhashi:playlist:1JZoMCGiAKcXrgBzbKW931'

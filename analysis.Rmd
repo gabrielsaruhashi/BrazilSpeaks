@@ -2,31 +2,451 @@
 title: "BrazilSpeaks"
 author: "Gabriel Saruhashi"
 date: "3/17/2019"
-output: pdf_document
+output:
+  pdf_document: default
+  word_document: default
 ---
 
 ```{r setup, include=FALSE}
 knitr::opts_chunk$set(echo = TRUE)
 ```
 
-## R Markdown
+# Intro
+Copy from BrazilSpeaks report
 
-This is an R Markdown document. Markdown is a simple formatting syntax for authoring HTML, PDF, and MS Word documents. For more details on using R Markdown see <http://rmarkdown.rstudio.com>.
+# DATA
+## Data scraping
+The following Python script was used
+```{python python.reticulate=FALSE, eval=FALSE, error=FALSE}
+from spotipy.oauth2 import SpotifyClientCredentials
+import spotipy
+import json
+import requests
+from bs4 import BeautifulSoup
+import pandas as pd
+import pprint
+import time
+from nltk.stem import RSLPStemmer
+from nltk.corpus import stopwords
+from nltk.tokenize import word_tokenize
+import os
+import re 
 
-When you click the **Knit** button a document will be generated that includes both content as well as the output of any embedded R code chunks within the document. You can embed an R code chunk like this:
+def setEnvironmentVariables():
+    os.environ['SPOTIPY_CLIENT_ID'] = 'c894a126681b4d97a8ccb0cd4a1e0de1'
+    os.environ['SPOTIPY_CLIENT_SECRET'] = 'ebf185aaf47e40ab841246986fc7483d'
+    os.environ['SPOTIPY_REDIRECT_URI'] = 'https://localhost:8080'
+    print('Successfully set the environment variables')
+
+def requestSongInfo(song_title, artist_name):
+    base_url = 'https://api.genius.com'
+    headers = {'Authorization': 'Bearer ' + '0RIKjAuJB6gohq-1r-w7FzG7W3FcgsL2ZwSRWjUdLLH0E31lUt6T8otW-JDL7VYC'}
+    search_url = base_url + '/search'
+    data = {'q': song_title + ' ' + artist_name}
+    response = requests.get(search_url, data=data, headers=headers)
+
+    return response
+
+def scrapeSongURL(url):
+    print("scraping {}".format(url))
+    page = requests.get(url)
+    html = BeautifulSoup(page.text, 'html.parser')
+    lyrics = html.find('div', class_='lyrics').get_text()
+
+    # try: 
+    # release_date = html.find('span', class_='metadata_unit-info metadata_unit-info--text_only').get_text()
+    # print(release_date)
+
+    return lyrics
+
+
+# Preprocessing of the Lyrics
+def preprocessLyrics(sentence):
+    # stemmer=RSLPStemmer()
+
+    sentence = sentence.lower()
+    # remove all the annotations (e.g '[refrão 1] Bla bla')
+    sentence = re.sub(r'[\(\[].*?[\)\]]', "", str(sentence))
+
+    # get Portuguese stopwords
+    file_stop = open("pt_stopwords.txt")
+    body_stop = file_stop.read()
+    stop = body_stop.split()
+
+    token_words = word_tokenize(sentence)
+    processed_sentence=[]
+    
+    for word in token_words:
+        if word not in stop:
+            processed_sentence.append(word)
+            # stem_sentence.append(stemmer.stem(word))
+            processed_sentence.append(" ")
+    
+    # remove all the annotations within [] and ()
+    
+    return "".join(processed_sentence)
+
+def extractLyrics(song_title, artist_name):
+    # Search for matches in request response
+    response = requestSongInfo(song_title, artist_name)
+    json = response.json()
+    remote_song_info = None
+    
+
+    for hit in json['response']['hits']:
+        if artist_name.lower() in hit['result']['primary_artist']['name'].lower():
+            remote_song_info = hit
+            break
+
+    # Extract lyrics from URL if song was found
+    if remote_song_info:
+        song_url = remote_song_info['result']['url']
+        lyrics = scrapeSongURL(song_url)
+        lyrics = lyrics.replace('\n', ' ')
+        lyrics = preprocessLyrics(lyrics)
+            
+        return lyrics
+    else:
+        print("Could not find lyrics for given artist and song title")
+        return ""
+
+def getSpotifySongFeatures(uri):
+    song_features = sp.audio_features(uri)
+    song_features = song_features[0]
+    
+    extra_fields = ["track_href", "uri", "analysis_url", "type"] 
+
+    for field in extra_fields:
+        song_features.pop(field)
+
+    return song_features
+
+def getSpotifyArtistInfo(artist_id):
+    artist = {}
+    
+    info = sp.artist(artist_id)
+   
+    artist["artist_genres"] = info["genres"][0]
+    artist["artist_name"] = info["name"]
+    if info["images"]:
+        artist["artist_photo"] = info["images"][0]["url"]
+    else:
+        artist["artist_photo"] = ""
+    artist["artist_popularity"] = info["popularity"]
+    artist["artist_sp_followers"] = info["followers"]["total"]
+
+    return artist
+
+def processSpotifyPlaylistCSV(uri, csv_filepath, song_class):
+    
+    start_time = time.time()
+
+    username = uri.split(':')[2]
+    playlist_id = uri.split(':')[4]
+
+    # get the relevant playlist
+    results = sp.user_playlist(username, playlist_id)
+
+    tracks = results["tracks"]["items"]
+
+    # define main data frame that will store 
+    df = pd.DataFrame()
+    index = 0
+    for obj in tracks:    
+        track = obj["track"]
+        song = {}
+        
+        # preprocessed song name
+        song_name = re.split(r' -| \(', track["name"])[0]
+
+        # song["artist"] = artist
+        song["song_sp_uri"] = track["uri"]
+        song["song_name"] = song_name
+        song["song_isrc"] = track["external_ids"]["isrc"]
+        song["song_popularity"] = track["popularity"]
+        song_features = getSpotifySongFeatures(track["uri"])
+
+        artist_info = getSpotifyArtistInfo(track["artists"][0]["id"])
+        song["song_lyrics"] = extractLyrics(song["song_name"], artist_info["artist_name"])
+        song["class"] = song_class
+
+        # concatenating all dictionaries
+        song = {**song, **song_features, **artist_info}   
+
+        # TODO incorporate this somehow
+        # song_analysis = sp.audio_analysis(track["uri"])
+   
+        df = pd.concat([df, pd.DataFrame(song, index=[index])])
+        index += 1
+
+    print("Scraping process took {} s. Now storing intermediate results for this class of music".format(time.time() - start_time))
+    df.to_csv(csv_filepath)
+
+    return df
+    
+# Uncomment this section if you'd like to start the datascraping script
+'''
+PROTEST_URI = 'spotify:user:gabriel_saruhashi:playlist:4Tp4QcTk9rNikjmaDg5VxJ'
+JOVEM_GUARDA_URI = 'spotify:user:gabriel_saruhashi:playlist:1JZoMCGiAKcXrgBzbKW931'
+PROTEST_CLASSNAME = "Protest"
+JOVEM_GUARDA_CLASSNAME = "Jovem Guarda"
+setEnvironmentVariables()
+
+client_credentials_manager = SpotifyClientCredentials()
+sp = spotipy.Spotify(client_credentials_manager=client_credentials_manager)
+
+# create csv with data from spotify
+protest_df = processSpotifyPlaylistCSV(PROTEST_URI, "protest.csv", "Protest")
+jovem_guarda_df = processSpotifyPlaylistCSV(JOVEM_GUARDA_URI, "jovem_guarda.csv", "Jovem Guarda")
+
+# store final output
+res_df = pd.concat([protest_df, jovem_guarda_df])
+res_df.to_csv("brz_dictatorship.csv")
+'''
+```
+
+
+## Overview of the data
+
+Make a LIST of all variables you use –describe units, anything I should know.
 
 ```{r}
-music = read.csv("brz_dictatorship.csv")
+music = read.csv("brz_dictatorship.csv", as.is=TRUE)
 dim(music)
+str(music)
+```
+Create corpus for text mining
+```{r}
+library(tm)
+
+jg <- paste(music$song_lyrics[music$class=="Jovem Guarda"], collapse = '')
+protest <- paste(music$song_lyrics[music$class=="Protest"], collapse = '')
+docs <- Corpus(VectorSource(c(jg, protest)))
+inspect(docs)
+
 
 ```
 
-## Including Plots
+# Data Cleaning
+describe the cleaning process you used on your data.  Talk about what issues you encountered.
 
-You can also embed plots, for example:
 
-```{r pressure, echo=FALSE}
-plot(pressure)
+```{r}
+# Remove numbers
+docs <- tm_map(docs, removeNumbers)
+# Remove english common stopwords
+docs <- tm_map(docs, removeWords, stopwords("portuguese"))
+# Remove punctuations
+docs <- tm_map(docs, removePunctuation)
+# Eliminate extra white spaces
+docs <- tm_map(docs, stripWhitespace)
+# Remove your own stop word
+# specify your stopwords as a character vector
+docs <- tm_map(docs, removeWords, c("mim", "pra", "vai")) 
 ```
 
-Note that the `echo = FALSE` parameter was added to the code chunk to prevent printing of the R code that generated the plot.
+# Descriptive Plots & Summary Information
+(Plots should be clearly labeled, well formatted,and display an aesthetic sense.)
+Examine correlations between continuous variables
+
+## Visualizing Correlations
+Your first task is to visually examine the correlations with the `corrplot.mixed`.
+
+```{r}
+
+#Load the corrplot package
+library(corrplot)
+
+df <- na.omit(music[,8:18])
+cor1 <- cor(df, use="pairwise.complete.obs")
+
+#round cor1 to 2 decimal places and display the result.  
+(round(cor1, 2))
+
+#get the array index (row, col) for the predictors of maximum non-one correlation value
+#By ignoring correlations cor1 == 1, you discard the matrix main diagonal
+#(correlation of a variable with itself is always 1).
+maxloc <- which(cor1 == max(cor1[cor1<1]), arr.ind = TRUE)
+
+#get the column names of the two variables with highest correlation by index
+#note that maxloc[2, ] is the same as maxloc[1, ], but flipped
+names(df)[maxloc[1,]]
+
+#Create an object called sigcorr that has the results of cor.mtest for columns 10-23 of the crime data.  Use 95% CI.
+sigcorr <- cor.mtest(df, conf.level = .95)
+
+#Use corrplot.mixed to display confidence ellipses, pairwise correlation values, and put on 'X' over non-significant values.
+corrplot.mixed(cor1, 
+               lower.col="black", 
+               upper = "ellipse",
+               tl.col = "black", 
+               number.cex=.7, 
+               tl.pos = "lt", 
+               tl.cex=.7, 
+               p.mat = sigcorr$p, 
+               sig.level = .05)
+
+```
+
+Now let's examine more closely the correlation between the two variables with highest correlation.
+
+```{r}
+plot(jitter(loudness) ~ jitter(energy), 
+     data=df,
+     xlab="Song Energy",
+     ylab="Song Loudness",
+     main=paste("Jittered scatterplot for loudness and energy\nSample correlation", round(cor1[maxloc[1, 1], maxloc[1,2]], 2)),
+     col="blue")
+```
+By adding a small amount of random normally distributed noise, we can see observations and their densities more clearly, and now it looks like there is a strongcorrelation between the two questions (as demonstrated by the slighlty linear concentration in density).
+
+
+## Stepwise Regression
+We are now going to proceed with performing stepwise regression. In particular, we're going to fit a model that looks at possible predictors of the class of the song.   To do this, I'm making a new dataset called `music2` which contains the relevant columns (notice I'm putting the response variable FIRST).  Be sure to remove the option `eval = F`.
+
+```{r}
+music2 <- music[,c(5, 8:18)]
+music2 <- na.omit(music2)
+
+#TODO why are factors not allowed for this
+#music2$class <- as.factor(music2$class)
+
+names(music2)
+dim(music2)
+str(music2)
+
+total_vars <- dim(music2)[2]
+
+```
+Perform best subsets regression using the `regsubsets` function in the `leaps` package.  Save the results in an object called `mod2`.  Get the summary of `mod2` and save the results in an object called `mod2sum`.  Display `mod2sum$which` to get a sense of which variables are included at each step of best subsets.
+
+```{r}
+library('leaps')
+
+#use all variables in crime2 (20 variables)
+mod2 <- regsubsets(song_popularity ~ ., data=music2, nvmax=total_vars)
+mod2sum <- summary(mod2)
+mod2sum$which
+```
+
+Now, let's examine the best model according to highest r-squared, etc.
+```{r}
+modnum = which.max(mod2sum$rsq)
+
+#Which variables are in model 12
+names(music2)[mod2sum$which[modnum,]][-1]
+
+#Fit this model and show results
+musictemp <- music2[,mod2sum$which[modnum,]]
+
+summary(lm(song_popularity ~ .,data=musictemp))
+
+```
+```{r}
+modnum <- which.max(mod2sum$adjr2)
+
+#Which variables are in model 12
+names(music2)[mod2sum$which[modnum,]][-1]
+
+#Fit this model and show results
+musictemp <- music2[,mod2sum$which[modnum,]]
+summary(lm(song_popularity ~ .,data=musictemp))
+```
+
+BIC
+```{r}
+modnum = which.min(mod2sum$bic)
+
+#Which variables are in model 12
+names(music2)[mod2sum$which[modnum,]][-1]
+
+#Fit this model and show results
+musictemp <- music2[,mod2sum$which[modnum,]]
+
+summary(lm(song_popularity ~ .,data=musictemp))
+```
+CP
+```{r}
+(modCP <- min(c(1:length(mod2sum$cp))[mod2sum$cp < c(1:length(mod2sum$cp))+1]))
+
+#Which variables are in model 2
+names(music2)[mod2sum$which[modCP,]][-1]
+
+#Fit this model and show results
+musictemp <- music2[,mod2sum$which[modCP,]]
+summary(lm(song_popularity ~ .,data=musictemp))
+```
+
+```{r}
+musicfinal <- music2[,mod2sum$which[1,]]
+modfin <- lm(song_popularity ~ .,data=musicfinal)
+
+#get new function for pairs plotn AND get myResPlots function
+source("http://www.reuningscherer.net/s&ds230/Rfuncs/regJDRS.txt")
+
+myResPlots(modfin,"Model for Song Popularity")
+```
+
+## Lyric Analysis
+Inspired by the analysis conducted by (http://www.sthda.com/english/wiki/text-mining-and-word-cloud-fundamentals-in-r-5-simple-steps-you-should-know)
+```{r}
+# Load
+library("tm")
+library("SnowballC")
+library("wordcloud")
+library("RColorBrewer")
+
+# Remove numbers
+docs <- tm_map(docs, removeNumbers)
+# Remove english common stopwords
+docs <- tm_map(docs, removeWords, stopwords("portuguese"))
+# Remove punctuations
+docs <- tm_map(docs, removePunctuation)
+# Eliminate extra white spaces
+docs <- tm_map(docs, stripWhitespace)
+
+# Document matrix is a table containing the frequency of the words. Column names are words and row names are documents
+dtm_jg <- TermDocumentMatrix(docs[1])
+m <- as.matrix(dtm_jg)
+v <- sort(rowSums(m),decreasing=TRUE)
+d_jg <- data.frame(word = names(v),freq=v)
+head(d_jg, 10)
+
+dtm_protest <- TermDocumentMatrix(docs[2])
+m <- as.matrix(dtm_protest)
+v <- sort(rowSums(m),decreasing=TRUE)
+d_protest <- data.frame(word = names(v),freq=v)
+head(d_protest, 10)
+```
+
+Generate the worcloud for protest songs
+```{r}
+set.seed(1234)
+wordcloud(words = d_protest$word, freq = d_protest$freq, min.freq = 8,
+          max.words=200, random.order=FALSE, rot.per=0.35, 
+          colors=brewer.pal(8, "Dark2"))
+
+#findFreqTerms(dtm, lowfreq = 4)
+#findAssocs(dtm, terms = "abusar", corlimit = 1.0)
+
+```
+Generate wordclouds for Jovem Guarda
+```{r}
+wordcloud(words = d_jg$word, freq = d_jg$freq, min.freq = 8,
+          max.words=200, random.order=FALSE, rot.per=0.35, 
+          colors=brewer.pal(8, "Dark2"))
+```
+Let's analyse now as barplots:
+```{r}
+par(mfrow=c(1,2))
+
+barplot(d_jg[1:10,]$freq, las = 2, names.arg = d_jg[1:10,]$word,
+        col ="orangered2", main ="Most frequent words for Jovem Guarda music",
+        ylab = "Word frequencies")
+
+barplot(d_protest[1:10,]$freq, las = 2, names.arg = d_protest[1:10,]$word,
+        col ="lightblue", main ="Most frequent words for Protest music",
+        ylab = "Word frequencies")
+```
+
+## Classification
