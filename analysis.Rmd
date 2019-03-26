@@ -249,6 +249,8 @@ docs <- tm_map(docs, removeWords, c("mim", "pra", "vai"))
 (Plots should be clearly labeled, well formatted,and display an aesthetic sense.)
 Examine correlations between continuous variables
 
+## Basic tests with the different classes
+
 ## Visualizing Correlations
 Your first task is to visually examine the correlations with the `corrplot.mixed`.
 

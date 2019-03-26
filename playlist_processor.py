@@ -11,6 +11,9 @@ from nltk.corpus import stopwords
 from nltk.tokenize import word_tokenize
 import os
 import re 
+import unidecode
+from whosampled_scraper import *
+
 
 def setEnvironmentVariables():
     os.environ['SPOTIPY_CLIENT_ID'] = 'c894a126681b4d97a8ccb0cd4a1e0de1'
@@ -27,26 +30,46 @@ def requestSongInfo(song_title, artist_name):
 
     return response
 
+# Scrapes song based on URL and returns the preprocessed lyrics
+# attemps two scraping methods (one based on ID and another based on class)
 def scrapeSongURL(url):
     print("scraping {}".format(url))
-    page = requests.get(url)
-    html = BeautifulSoup(page.text, 'html.parser')
-    lyrics = html.find('div', class_='lyrics').get_text()
+    page = requests.get(url).content
 
+    page = page.decode('utf8')
+    page = page.encode("utf8",'ignore')
+
+    html = BeautifulSoup(page, 'html.parser')
+    lyrics = html.find('div', class_='lyrics')
+    if lyrics:
+        return preprocessLyrics(lyrics.get_text())
+
+    else: # backup method scraping Vagalume
+        lyrics = html.find('div', {"id": "lyrics"})
+  
+        if lyrics:
+            print(preprocessLyrics(lyrics.get_text()))
+            return preprocessLyrics(lyrics.get_text())
+
+        # lyrics = preprocessLyrics(lyrics)
     # try: 
     # release_date = html.find('span', class_='metadata_unit-info metadata_unit-info--text_only').get_text()
     # print(release_date)
-
-    return lyrics
+    print("none found")
+    return ""
 
 
 # Preprocessing of the Lyrics
-def preprocessLyrics(sentence):
+def preprocessLyrics(lyrics):
     # stemmer=RSLPStemmer()
-
+    sentence = lyrics.replace('\n', ' ')
+    # lower lyrics
     sentence = sentence.lower()
     # remove all the annotations (e.g '[refrão 1] Bla bla')
     sentence = re.sub(r'[\(\[].*?[\)\]]', "", str(sentence))
+
+    # remove special characters
+    sentence = unidecode.unidecode(sentence)
 
     # get Portuguese stopwords
     file_stop = open("pt_stopwords.txt")
@@ -69,11 +92,11 @@ def preprocessLyrics(sentence):
 def extractLyrics(song_title, artist_name):
     # Search for matches in request response
     response = requestSongInfo(song_title, artist_name)
-    json = response.json()
+    json_obj = response.json()
     remote_song_info = None
     
 
-    for hit in json['response']['hits']:
+    for hit in json_obj['response']['hits']:
         if artist_name.lower() in hit['result']['primary_artist']['name'].lower():
             remote_song_info = hit
             break
@@ -82,13 +105,17 @@ def extractLyrics(song_title, artist_name):
     if remote_song_info:
         song_url = remote_song_info['result']['url']
         lyrics = scrapeSongURL(song_url)
-        lyrics = lyrics.replace('\n', ' ')
-        lyrics = preprocessLyrics(lyrics)
-            
+
         return lyrics
     else:
-        print("Could not find lyrics for given artist and song title")
-        return ""
+        if song_title.lower() == "que as crianças cantem livres":
+            url = "https://www.vagalume.com.br/taiguara/que-as-criancas-cantemlivres.html"
+        else:
+            url = "https://www.vagalume.com.br/{}/{}.html".format(artist_name, song_title)
+            url = url.replace(" ", "-")
+            url = unidecode.unidecode(url)
+            url = url.lower()
+        return scrapeSongURL(url)
 
 def getSpotifySongFeatures(uri):
     song_features = sp.audio_features(uri)
@@ -117,6 +144,18 @@ def getSpotifyArtistInfo(artist_id):
 
     return artist
 
+def whoSampledExtraction(tracks):
+    og_tracks = []
+    for i in tracks:
+        artists = [unidecode.unidecode(j['name']) for j in i['track']['artists']]
+        track_name = i['track']['name'].replace('Instrumental', '')
+        
+        og_tracks.append({'artist' : artists, 'track': unidecode.unidecode(track_name)})
+    
+    pprint.pprint(og_tracks)
+    new_playlist_tracks = get_whosampled_playlist(og_tracks)
+    pprint.pprint(new_playlist_tracks)
+
 def processSpotifyPlaylistCSV(uri, csv_filepath, song_class):
     
     start_time = time.time()
@@ -128,6 +167,9 @@ def processSpotifyPlaylistCSV(uri, csv_filepath, song_class):
     results = sp.user_playlist(username, playlist_id)
 
     tracks = results["tracks"]["items"]
+
+    # TODO incorporating whosampled extraction
+    whoSampledExtraction(tracks)
 
     # define main data frame that will store 
     df = pd.DataFrame()
@@ -165,6 +207,9 @@ def processSpotifyPlaylistCSV(uri, csv_filepath, song_class):
     return df
 
 
+
+# content =requests.get("https://api.vagalume.com.br/search.php?art=Taiguara&mus=Que+As+Criancas+Cantem+Livres&apikey=805ea7f0ceb5241b3fc80cbff1f33ab0",  headers={'User-Agent': 'Mozilla/5.0'})
+# print(content.status_code)
 PROTEST_URI = 'spotify:user:gabriel_saruhashi:playlist:4Tp4QcTk9rNikjmaDg5VxJ'
 JOVEM_GUARDA_URI = 'spotify:user:gabriel_saruhashi:playlist:1JZoMCGiAKcXrgBzbKW931'
 PROTEST_CLASSNAME = "Protest"
@@ -181,3 +226,6 @@ jovem_guarda_df = processSpotifyPlaylistCSV(JOVEM_GUARDA_URI, "jovem_guarda.csv"
 # store final output
 res_df = pd.concat([protest_df, jovem_guarda_df])
 res_df.to_csv("brz_dictatorship.csv")
+target_df = res_df[['class']].copy()
+target_df.to_csv("brz_dictatorship_target.csv")
+
