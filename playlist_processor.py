@@ -48,7 +48,6 @@ def scrapeSongURL(url):
         lyrics = html.find('div', {"id": "lyrics"})
   
         if lyrics:
-            print(preprocessLyrics(lyrics.get_text()))
             return preprocessLyrics(lyrics.get_text())
 
         # lyrics = preprocessLyrics(lyrics)
@@ -132,8 +131,10 @@ def getSpotifyArtistInfo(artist_id):
     artist = {}
     
     info = sp.artist(artist_id)
-   
-    artist["artist_genres"] = info["genres"][0]
+    if info["genres"]:
+        artist["artist_genres"] = info["genres"][0]
+    else:
+        artist["artist_genres"] = ""
     artist["artist_name"] = info["name"]
     if info["images"]:
         artist["artist_photo"] = info["images"][0]["url"]
@@ -169,7 +170,7 @@ def processSpotifyPlaylistCSV(uri, csv_filepath, song_class):
     tracks = results["tracks"]["items"]
 
     # TODO incorporating whosampled extraction
-    whoSampledExtraction(tracks)
+    # whoSampledExtraction(tracks)
 
     # define main data frame that will store 
     df = pd.DataFrame()
