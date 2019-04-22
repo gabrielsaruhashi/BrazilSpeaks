@@ -214,6 +214,7 @@ Make a LIST of all variables you use –describe units, anything I should know.
 music = read.csv("brz_dictatorship.csv", as.is=TRUE)
 dim(music)
 str(music)
+
 ```
 Create corpus for text mining
 ```{r}
@@ -424,7 +425,7 @@ head(d_protest, 10)
 Generate the worcloud for protest songs
 ```{r}
 set.seed(1234)
-wordcloud(words = d_protest$word, freq = d_protest$freq, min.freq = 8,
+wordcloud(words = d_protest$word, freq = d_protest$freq, min.freq = 15,
           max.words=200, random.order=FALSE, rot.per=0.35, 
           colors=brewer.pal(8, "Dark2"))
 
@@ -434,7 +435,7 @@ wordcloud(words = d_protest$word, freq = d_protest$freq, min.freq = 8,
 ```
 Generate wordclouds for Jovem Guarda
 ```{r}
-wordcloud(words = d_jg$word, freq = d_jg$freq, min.freq = 8,
+wordcloud(words = d_jg$word, freq = d_jg$freq, min.freq = 15,
           max.words=200, random.order=FALSE, rot.per=0.35, 
           colors=brewer.pal(8, "Dark2"))
 ```
