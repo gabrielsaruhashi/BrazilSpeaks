@@ -1,0 +1,180 @@
+---
+title: "analysis_final"
+author: "Gabriel Saruhashi"
+date: "4/23/2019"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## Overview of the data
+
+Make a LIST of all variables you use –describe units, anything I should know.
+
+```{r}
+music = read.csv("brz_dictatorship.csv", as.is=TRUE)
+dim(music)
+str(music)
+
+```
+Create corpus for text mining
+```{r}
+library(tm)
+
+jg <- paste(music$song_lyrics[music$class=="Jovem Guarda"], collapse = '')
+protest <- paste(music$song_lyrics[music$class=="Protest"], collapse = '')
+docs <- Corpus(VectorSource(c(jg, protest)))
+#inspect(docs)
+
+
+```
+
+# Data Cleaning
+describe the cleaning process you used on your data.  Talk about what issues you encountered.
+
+
+```{r}
+# Remove numbers
+docs <- tm_map(docs, removeNumbers)
+# Remove english common stopwords
+docs <- tm_map(docs, removeWords, stopwords("portuguese"))
+# Remove punctuations
+docs <- tm_map(docs, removePunctuation)
+# Eliminate extra white spaces
+docs <- tm_map(docs, stripWhitespace)
+# Remove your own stop word
+# specify your stopwords as a character vector
+docs <- tm_map(docs, removeWords, c("mim", "pra", "vai")) 
+```
+
+# Descriptive Plots & Summary Information
+(Plots should be clearly labeled, well formatted,and display an aesthetic sense.)
+Examine correlations between continuous variables
+
+```{r}
+library("ggplot2")
+# 1. Open jpeg file
+jpeg("valence_bp.jpeg", width = 350, height = 350)
+boxplot(valence ~ class, data=music, col = 'yellow', main = "Valence by Class", ylab = "Valence")
+#calculate means using the tapply function - could also use the by function
+means <- tapply(music$valence, music$class, mean)
+points(means, col = "red", pch = 19, cex = 1.2)
+text(x=c(1:5), y=means+.2, labels = round(means,2))
+dev.off()
+
+jpeg("speechiness_bp.jpeg", width = 350, height = 350)
+boxplot(speechiness ~ class, data=music, col = 'green', main = "Speechiness by Class", ylab = "Speechiness")
+#calculate means using the tapply function - could also use the by function
+means <- tapply(music$speechiness, music$class, mean)
+points(means, col = "red", pch = 19, cex = 1.2)
+text(x=c(1:5), y=means+.2, labels = round(means,2))
+dev.off()
+
+jpeg("energy.jpeg", width = 350, height = 350)
+boxplot(energy ~ class, data=music, col = 'blue', main = "Energy by Class", ylab = "Energy")
+#calculate means using the tapply function - could also use the by function
+means <- tapply(music$energy, music$class, mean)
+points(means, col = "red", pch = 19, cex = 1.2)
+text(x=c(1:5), y=means+.2, labels = round(means,2))
+dev.off()
+
+jpeg("danceability.jpeg", width = 400, height = 400)
+boxplot(danceability ~ class, data=music, col = 'pink', 
+        main = "Danceability by Class", ylab = "Danceability")
+#calculate means using the tapply function - could also use the by function
+means <- tapply(music$danceability, music$class, mean)
+points(means, col = "red", pch = 19, cex = 1.2)
+text(x=c(1:5), y=means+.2, labels = round(means,2))
+dev.off()
+```
+
+```{r}
+print("Means by Music Class")
+tapply(music$valence, music$class, mean)
+
+print("SD by Class")
+(sds <- tapply(music$valence, music$class, sd))
+
+#Check ratio of largest to smallest sample sd
+print("Ratio of Max/Min Sample SD")
+round(max(sds)/min(sds),1)
+```
+
+```{r}
+print("Means by Music Class")
+tapply(music$speechiness, music$class, mean)
+
+print("SD by Class")
+(sds <- tapply(music$speechiness, music$class, sd))
+
+#Check ratio of largest to smallest sample sd
+print("Ratio of Max/Min Sample SD")
+round(max(sds)/min(sds),1)
+```
+Kruskall-Wallis
+```{r}
+kruskal.test(music$speechiness ~ as.factor(music$class))
+summary.aov(aov(music$speechiness ~ as.factor(music$class)))
+```
+
+## Lyric Analysis
+Inspired by the analysis conducted by (http://www.sthda.com/english/wiki/text-mining-and-word-cloud-fundamentals-in-r-5-simple-steps-you-should-know)
+```{r}
+# Load
+library("tm")
+library("SnowballC")
+library("wordcloud")
+library("RColorBrewer")
+
+# Remove numbers
+docs <- tm_map(docs, removeNumbers)
+# Remove english common stopwords
+docs <- tm_map(docs, removeWords, stopwords("portuguese"))
+# Remove punctuations
+docs <- tm_map(docs, removePunctuation)
+# Eliminate extra white spaces
+docs <- tm_map(docs, stripWhitespace)
+
+# Document matrix is a table containing the frequency of the words. Column names are words and row names are documents
+dtm_jg <- TermDocumentMatrix(docs[1])
+m <- as.matrix(dtm_jg)
+v <- sort(rowSums(m),decreasing=TRUE)
+d_jg <- data.frame(word = names(v),freq=v)
+head(d_jg, 10)
+
+dtm_protest <- TermDocumentMatrix(docs[2])
+m <- as.matrix(dtm_protest)
+v <- sort(rowSums(m),decreasing=TRUE)
+d_protest <- data.frame(word = names(v),freq=v)
+head(d_protest, 10)
+```
+
+Generate the worcloud for protest songs
+```{r}
+set.seed(1234)
+wordcloud(words = d_protest$word, freq = d_protest$freq, min.freq = 15,
+          max.words=200, random.order=FALSE, rot.per=0.35, 
+          colors=brewer.pal(8, "Dark2"))
+
+
+```
+Generate wordclouds for Jovem Guarda
+```{r}
+wordcloud(words = d_jg$word, freq = d_jg$freq, min.freq = 15,
+          max.words=200, random.order=FALSE, rot.per=0.35, 
+          colors=brewer.pal(8, "Dark2"))
+```
+Let's analyse now as barplots:
+```{r}
+par(mfrow=c(1,2))
+
+barplot(d_jg[1:10,]$freq, las = 2, names.arg = d_jg[1:10,]$word,
+        col ="orangered2", main ="Most frequent words for Jovem Guarda music",
+        ylab = "Word frequencies")
+
+barplot(d_protest[1:10,]$freq, las = 2, names.arg = d_protest[1:10,]$word,
+        col ="lightblue", main ="Most frequent words for Protest music",
+        ylab = "Word frequencies")
+```
