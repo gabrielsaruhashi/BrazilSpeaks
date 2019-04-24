@@ -1,3 +1,5 @@
+# coding=utf-8
+
 from spotipy.oauth2 import SpotifyClientCredentials
 import spotipy
 import json
@@ -146,16 +148,18 @@ def getSpotifyArtistInfo(artist_id):
     return artist
 
 def whoSampledExtraction(tracks):
+    print("Let's scrape from whoSampled")
     og_tracks = []
+    df = pd.DataFrame()
     for i in tracks:
         artists = [unidecode.unidecode(j['name']) for j in i['track']['artists']]
         track_name = i['track']['name'].replace('Instrumental', '')
+        song = {'artist' : artists, 'track': unidecode.unidecode(track_name)}
+        og_tracks.append(song)
         
-        og_tracks.append({'artist' : artists, 'track': unidecode.unidecode(track_name)})
-    
-    pprint.pprint(og_tracks)
     new_playlist_tracks = get_whosampled_playlist(og_tracks)
-    pprint.pprint(new_playlist_tracks)
+    #pprint.pprint(new_playlist_tracks)
+    print("Done creating list of songs that sampled from the songs / artists in our playlist.")
 
 def processSpotifyPlaylistCSV(uri, csv_filepath, song_class):
     
@@ -170,7 +174,7 @@ def processSpotifyPlaylistCSV(uri, csv_filepath, song_class):
     tracks = results["tracks"]["items"]
 
     # TODO incorporating whosampled extraction
-    # whoSampledExtraction(tracks)
+    #whoSampledExtraction(tracks)
 
     # define main data frame that will store 
     df = pd.DataFrame()
@@ -209,24 +213,23 @@ def processSpotifyPlaylistCSV(uri, csv_filepath, song_class):
 
 
 
-# content =requests.get("https://api.vagalume.com.br/search.php?art=Taiguara&mus=Que+As+Criancas+Cantem+Livres&apikey=805ea7f0ceb5241b3fc80cbff1f33ab0",  headers={'User-Agent': 'Mozilla/5.0'})
-# print(content.status_code)
-PROTEST_URI = 'spotify:user:gabriel_saruhashi:playlist:4Tp4QcTk9rNikjmaDg5VxJ'
-JOVEM_GUARDA_URI = 'spotify:user:gabriel_saruhashi:playlist:1JZoMCGiAKcXrgBzbKW931'
-PROTEST_CLASSNAME = "Protest"
-JOVEM_GUARDA_CLASSNAME = "Jovem Guarda"
+
+# PROTEST_URI = 'spotify:user:gabriel_saruhashi:playlist:4Tp4QcTk9rNikjmaDg5VxJ'
+# JOVEM_GUARDA_URI = 'spotify:user:gabriel_saruhashi:playlist:1JZoMCGiAKcXrgBzbKW931'
+# PROTEST_CLASSNAME = "Protest"
+# JOVEM_GUARDA_CLASSNAME = "Jovem Guarda"
 setEnvironmentVariables()
 
 client_credentials_manager = SpotifyClientCredentials()
 sp = spotipy.Spotify(client_credentials_manager=client_credentials_manager)
 
-# create csv with data from spotify
-protest_df = processSpotifyPlaylistCSV(PROTEST_URI, "protest.csv", "Protest")
-jovem_guarda_df = processSpotifyPlaylistCSV(JOVEM_GUARDA_URI, "jovem_guarda.csv", "Jovem Guarda")
+# # create csv with data from spotify
+# protest_df = processSpotifyPlaylistCSV(PROTEST_URI, "protest.csv", "Protest")
+# jovem_guarda_df = processSpotifyPlaylistCSV(JOVEM_GUARDA_URI, "jovem_guarda.csv", "Jovem Guarda")
 
-# store final output
-res_df = pd.concat([protest_df, jovem_guarda_df])
-res_df.to_csv("brz_dictatorship.csv")
-target_df = res_df[['class']].copy()
-target_df.to_csv("brz_dictatorship_target.csv")
+# # store final output
+# res_df = pd.concat([protest_df, jovem_guarda_df])
+# res_df.to_csv("brz_dictatorship.csv")
+# target_df = res_df[['class']].copy()
+# target_df.to_csv("brz_dictatorship_target.csv")
 

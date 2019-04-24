@@ -1,6 +1,7 @@
 import requests
 from bs4 import BeautifulSoup
 import urllib3
+import pandas as pd
 urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
 http = urllib3.PoolManager()
 
@@ -46,12 +47,21 @@ def getme_thesamples(song_name, artist_name):
 def get_whosampled_playlist(loaded_playlist):
     samples = []
     new_playlist = []
+    df = pd.DataFrame()
+    index = 0
     print('SPOTIFY PLAYLIST DISCOVERED: \n')
     for i in loaded_playlist:
         print(i['track']+' by '+i['artist'][0])
     for i in loaded_playlist:
         samples, sampled_by = getme_thesamples(i['track'], i['artist'][0])
         if samples:
+            for sample in samples:
+                df = pd.concat([df, pd.DataFrame(sample, index=[index])])
+                index += 1
+   
             new_playlist.append(samples)
+    
     lst = [i for j in new_playlist for i in j]
+   
+    df.to_csv("whosampled_list.csv")
     return lst
