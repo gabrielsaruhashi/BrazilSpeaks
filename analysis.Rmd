@@ -4,7 +4,6 @@ author: "Gabriel Saruhashi"
 date: "3/17/2019"
 output:
   pdf_document: default
-  word_document: default
 ---
 
 ```{r setup, include=FALSE}
@@ -138,7 +137,6 @@ def getSpotifyArtistInfo(artist_id):
     return artist
 
 def processSpotifyPlaylistCSV(uri, csv_filepath, song_class):
-    
     start_time = time.time()
 
     username = uri.split(':')[2]
@@ -205,7 +203,6 @@ res_df.to_csv("brz_dictatorship.csv")
 '''
 ```
 
-
 ## Overview of the data
 
 Make a LIST of all variables you use –describe units, anything I should know.
@@ -214,7 +211,6 @@ Make a LIST of all variables you use –describe units, anything I should know.
 music = read.csv("brz_dictatorship.csv", as.is=TRUE)
 dim(music)
 str(music)
-
 ```
 Create corpus for text mining
 ```{r}
@@ -223,8 +219,6 @@ library(tm)
 jg <- paste(music$song_lyrics[music$class=="Jovem Guarda"], collapse = '')
 protest <- paste(music$song_lyrics[music$class=="Protest"], collapse = '')
 docs <- Corpus(VectorSource(c(jg, protest)))
-inspect(docs)
-
 
 ```
 
@@ -249,6 +243,72 @@ docs <- tm_map(docs, removeWords, c("mim", "pra", "vai"))
 # Descriptive Plots & Summary Information
 (Plots should be clearly labeled, well formatted,and display an aesthetic sense.)
 Examine correlations between continuous variables
+
+```{r}
+library("ggplot2")
+# 1. Open jpeg file
+jpeg("valence_bp.jpeg", width = 350, height = 350)
+boxplot(valence ~ class, data=music, col = 'yellow', main = "Valence by Class", ylab = "Valence")
+#calculate means using the tapply function - could also use the by function
+means <- tapply(music$valence, music$class, mean)
+points(means, col = "red", pch = 19, cex = 1.2)
+text(x=c(1:5), y=means+.2, labels = round(means,2))
+dev.off()
+
+jpeg("speechiness_bp.jpeg", width = 350, height = 350)
+boxplot(speechiness ~ class, data=music, col = 'green', main = "Speechiness by Class", ylab = "Speechiness")
+#calculate means using the tapply function - could also use the by function
+means <- tapply(music$speechiness, music$class, mean)
+points(means, col = "red", pch = 19, cex = 1.2)
+text(x=c(1:5), y=means+.2, labels = round(means,2))
+dev.off()
+
+jpeg("energy.jpeg", width = 350, height = 350)
+boxplot(energy ~ class, data=music, col = 'blue', main = "Energy by Class", ylab = "Energy")
+#calculate means using the tapply function - could also use the by function
+means <- tapply(music$energy, music$class, mean)
+points(means, col = "red", pch = 19, cex = 1.2)
+text(x=c(1:5), y=means+.2, labels = round(means,2))
+dev.off()
+
+jpeg("danceability.jpeg", width = 400, height = 400)
+boxplot(danceability ~ class, data=music, col = 'pink', 
+        main = "Danceability by Class", ylab = "Danceability")
+#calculate means using the tapply function - could also use the by function
+means <- tapply(music$danceability, music$class, mean)
+points(means, col = "red", pch = 19, cex = 1.2)
+text(x=c(1:5), y=means+.2, labels = round(means,2))
+dev.off()
+```
+
+```{r}
+print("Means by Music Class")
+tapply(music$valence, music$class, mean)
+
+print("SD by Class")
+(sds <- tapply(music$valence, music$class, sd))
+
+#Check ratio of largest to smallest sample sd
+print("Ratio of Max/Min Sample SD")
+round(max(sds)/min(sds),1)
+```
+
+```{r}
+print("Means by Music Class")
+tapply(music$speechiness, music$class, mean)
+
+print("SD by Class")
+(sds <- tapply(music$speechiness, music$class, sd))
+
+#Check ratio of largest to smallest sample sd
+print("Ratio of Max/Min Sample SD")
+round(max(sds)/min(sds),1)
+```
+Kruskall-Wallis
+```{r}
+kruskal.test(music$speechiness ~ as.factor(music$class))
+summary.aov(aov(music$speechiness ~ as.factor(music$class)))
+```
 
 ## Basic tests with the different classes
 

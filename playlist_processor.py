@@ -174,7 +174,7 @@ def processSpotifyPlaylistCSV(uri, csv_filepath, song_class):
     tracks = results["tracks"]["items"]
 
     # TODO incorporating whosampled extraction
-    #whoSampledExtraction(tracks)
+    whoSampledExtraction(tracks)
 
     # define main data frame that will store 
     df = pd.DataFrame()
@@ -214,18 +214,18 @@ def processSpotifyPlaylistCSV(uri, csv_filepath, song_class):
 
 
 
-# PROTEST_URI = 'spotify:user:gabriel_saruhashi:playlist:4Tp4QcTk9rNikjmaDg5VxJ'
-# JOVEM_GUARDA_URI = 'spotify:user:gabriel_saruhashi:playlist:1JZoMCGiAKcXrgBzbKW931'
-# PROTEST_CLASSNAME = "Protest"
-# JOVEM_GUARDA_CLASSNAME = "Jovem Guarda"
+PROTEST_URI = 'spotify:user:gabriel_saruhashi:playlist:4Tp4QcTk9rNikjmaDg5VxJ'
+JOVEM_GUARDA_URI = 'spotify:user:gabriel_saruhashi:playlist:1JZoMCGiAKcXrgBzbKW931'
+PROTEST_CLASSNAME = "Protest"
+JOVEM_GUARDA_CLASSNAME = "Jovem Guarda"
 setEnvironmentVariables()
 
 client_credentials_manager = SpotifyClientCredentials()
 sp = spotipy.Spotify(client_credentials_manager=client_credentials_manager)
 
 # # create csv with data from spotify
-# protest_df = processSpotifyPlaylistCSV(PROTEST_URI, "protest.csv", "Protest")
-# jovem_guarda_df = processSpotifyPlaylistCSV(JOVEM_GUARDA_URI, "jovem_guarda.csv", "Jovem Guarda")
+protest_df = processSpotifyPlaylistCSV(PROTEST_URI, "protest.csv", "Protest")
+jovem_guarda_df = processSpotifyPlaylistCSV(JOVEM_GUARDA_URI, "jovem_guarda.csv", "Jovem Guarda")
 
 # # store final output
 # res_df = pd.concat([protest_df, jovem_guarda_df])

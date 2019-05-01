@@ -10,5 +10,5 @@ PROTEST_CLASSNAME = "Protest"
 
 
 # create csv with data from spotify
-print("here")
+print("Let's create the dataset of modern day protest songs.")
 protest_df = processSpotifyPlaylistCSV(URI, "whosampled_data.csv", "Protest")
