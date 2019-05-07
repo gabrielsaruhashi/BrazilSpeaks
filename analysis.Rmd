@@ -368,6 +368,8 @@ abline(v=boot_ci,lwd=3, col="red")
 abline(v=test1,lwd=3, col="green", lty = 2)
 legend(48,600, c("Original CI","Boot CI"), lwd=3, col = c("green","red"), lty = c(2,1))
 ```
+
+
 ```{r echo=FALSE}
 #Function to get permutation test p-values for correlation
 
@@ -391,14 +393,10 @@ permCor <- function(x, y, n_samp = 10000, plot = T){
       return(round(pval,5))
    }  
 }
-
-#Get permutation p-value, skip the plot
-#magnitude of strength between two continou avriables,. did we seee a samplec orrelation just by chance? 
-#dcoukld that happenn just by chance? sample correlation is 1,could we have somtthing as large as thanb y chance? if correlation  is0 , it is arbitrary which value 
-# 10000 times, we never saw a correlation by .2 jkust by chance, our actula is .5
+#cor(music$valence,music$danceability)
 permCor(music$valence,music$danceability)
 ```
-
+The null hypothesis is that there is no difference in the median of improvements between male and female runners. The alternative hypothesis is that there is a difference in the median of improvements between male and female runners. We cannot reject the null hypothesis in this case given that the difference is not statistically significant (0.08 > 0.05). In the context of this test, this p-value is the probability of finding a test statistic (i.e difference in mean) for the group comparison at least as high as the one observed, provided that there is no actual difference (i.e., null hypothesis is true).
 ## Basic tests with the different classes
 
 ```{r echo=FALSE}
@@ -408,9 +406,6 @@ library(corrplot)
 
 df <- music[,8:18]
 cor1 <- cor(df, use="pairwise.complete.obs")
-
-#round cor1 to 2 decimal places and display the result.  
-(round(cor1, 2))
 
 #get the array index (row, col) for the predictors of maximum non-one correlation value
 #By ignoring correlations cor1 == 1, you discard the matrix main diagonal
@@ -529,14 +524,8 @@ modfin <- lm(song_popularity ~ .,data=musicfinal)
 #get new function for pairs plotn AND get myResPlots function
 source("http://www.reuningscherer.net/s&ds230/Rfuncs/regJDRS.txt")
 
-myResPlots(modfin,"Model for Song Popularity")
+myResPlots2(modfin,"Model for Song Popularity")
 ```
-Model seems tohave good fit, no evidence of heteroskedasticity,residuals seem to be approximately normallydistributed, although there is evidence that it is not normal distribution
+The model assumptions do not seem be met given that the erros in the normal quantile plot are NOT normally distributed and the fits vs residuals plot show no evidence of heteroscedasticity (the distribution of positive and negative residuals appears symmetric across all the possible fitted values). in other words, the assumptions are met because there is constant variance across fitted values, few outliers, no clear trend.
 
-
-```{r}
-
-
-
-```
 
