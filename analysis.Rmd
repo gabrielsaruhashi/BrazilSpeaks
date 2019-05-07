@@ -20,8 +20,6 @@ To collect the data,  It requires
 
 I compiled two Spotify playlists, one for each class of music. Through the Spotify API, I obtained key features of each song, such as speechness, danceability and energy, that are measured in a scale of 0.0 to 1.0 (Figure 3).  However, Spotify does not directly provide the lyrics for each of the songs. To circumvent this limitation, I built a parallel pipeline that, given a song name ands its author, scrapes song lyrics from Genius and Vagalume, two well-known music platform that provide lyrics and song annotations. The procedure yielded a corpus of 280 songs equally divided in the two categories: 140 censored and 140 uncensored songs. 
 
-Although the song features supplied by the Spotify API were already normalized, I had to perform some preprocessing of the lyric. First, I removed stopwords (e.g ‘me’, ‘I’, etc.) from the dataset given that they are so common in the language that their informational value is near zero. Second I cleaned up the Genius lyrics by removing the annotations, punctuations and number. 
-
 ```{python python.reticulate=FALSE, eval=FALSE, error=FALSE}
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
@@ -248,8 +246,7 @@ str(docs)
 ```
 
 # Data Cleaning
-describe the cleaning process you used on your data.  Talk about what issues you encountered.
-
+Although the song features supplied by the Spotify API were already normalized, I had to perform some preprocessing of the lyric. First, I removed stopwords (e.g ‘me’, ‘I’, etc.) from the dataset given that they are so common in the language that their informational value is near zero. Second I cleaned up the Genius lyrics by removing the annotations, punctuations and number. 
 
 ```{r warning=FALSE}
 # Load
@@ -260,7 +257,7 @@ library("RColorBrewer")
 
 # Remove numbers
 docs <- tm_map(docs, removeNumbers)
-# Remove english common stopwords
+# Remove Portuguese common stopwords
 docs <- tm_map(docs, removeWords, stopwords("portuguese"))
 # Remove punctuations
 docs <- tm_map(docs, removePunctuation)
@@ -409,7 +406,7 @@ permCor(music$valence,music$danceability)
 #Load the corrplot package
 library(corrplot)
 
-df <- na.omit(music[,8:18])
+df <- music[,8:18]
 cor1 <- cor(df, use="pairwise.complete.obs")
 
 #round cor1 to 2 decimal places and display the result.  

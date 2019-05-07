@@ -3,3 +3,5 @@ ___pycache___
 .cache*
 out
 data/
+.DS_Store
+
