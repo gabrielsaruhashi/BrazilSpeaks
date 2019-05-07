@@ -2,3 +2,4 @@ ___pycache___
 *.pyc
 .cache*
 out
+data/
