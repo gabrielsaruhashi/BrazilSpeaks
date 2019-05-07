@@ -11,12 +11,20 @@ knitr::opts_chunk$set(echo = TRUE)
 ```
 
 # Intro
-Copy from BrazilSpeaks report
+On April 1, 1964, the military organized a coup d’état that overthrew the government of president João Goulart. That day marked the beginning of the Military Dictatorship that lasted for twenty-one years. Under the pretext of eliminating the growing Communist threaT suppressed freedom of speech and imposed rigorous censorship over the all forms of media. In the late 60s, with the popularization of television and radio stations, music began to have a lot of influence over society and, for this reason, it was heavily monitored by the regime’s censors. On the one hand, there was a group of musicians that simply conformed to the oppressive rules of the regime. Inspired by the soft rock melodies by the Beatles, they avoided political themes and made fortunes composing songs about love and trivial, middle-class concerns. Yet, on the other hand, a group of musicians stood out in the fight against oppression. Through their music, they conveyed a message of criticism against the regime. Their “protest music” denounced blatant social injustices, mobilized political passions, praised the individual and collective heroes who fought the oppressors. 
+
 
 # DATA
-## Data scraping
-The following Python script was used
+## Data Scraping & Collection
+To collect the data,  It requires 
+
+I compiled two Spotify playlists, one for each class of music. Through the Spotify API, I obtained key features of each song, such as speechness, danceability and energy, that are measured in a scale of 0.0 to 1.0 (Figure 3).  However, Spotify does not directly provide the lyrics for each of the songs. To circumvent this limitation, I built a parallel pipeline that, given a song name ands its author, scrapes song lyrics from Genius and Vagalume, two well-known music platform that provide lyrics and song annotations. The procedure yielded a corpus of 280 songs equally divided in the two categories: 140 censored and 140 uncensored songs. 
+
+Although the song features supplied by the Spotify API were already normalized, I had to perform some preprocessing of the lyric. First, I removed stopwords (e.g ‘me’, ‘I’, etc.) from the dataset given that they are so common in the language that their informational value is near zero. Second I cleaned up the Genius lyrics by removing the annotations, punctuations and number. 
+
 ```{python python.reticulate=FALSE, eval=FALSE, error=FALSE}
+#!/usr/bin/env python
+# -*- coding: utf-8 -*-
 from spotipy.oauth2 import SpotifyClientCredentials
 import spotipy
 import json
@@ -52,12 +60,7 @@ def scrapeSongURL(url):
     html = BeautifulSoup(page.text, 'html.parser')
     lyrics = html.find('div', class_='lyrics').get_text()
 
-    # try: 
-    # release_date = html.find('span', class_='metadata_unit-info metadata_unit-info--text_only').get_text()
-    # print(release_date)
-
     return lyrics
-
 
 # Preprocessing of the Lyrics
 def preprocessLyrics(sentence):
@@ -170,9 +173,6 @@ def processSpotifyPlaylistCSV(uri, csv_filepath, song_class):
 
         # concatenating all dictionaries
         song = {**song, **song_features, **artist_info}   
-
-        # TODO incorporate this somehow
-        # song_analysis = sp.audio_analysis(track["uri"])
    
         df = pd.concat([df, pd.DataFrame(song, index=[index])])
         index += 1
@@ -204,13 +204,36 @@ res_df.to_csv("brz_dictatorship.csv")
 ```
 
 ## Overview of the data
-
-Make a LIST of all variables you use –describe units, anything I should know.
-
-```{r}
+Upon loading the data, we observe the following structure:
+* song_sp_uri (chr): a unique identifies  song in the spotify platform
+* song_name (chr): the name of the song
+* song_isrc (chr): the International Standard Recording Code for the song
+* song_popularity (int) : provided by the Spotify API, "The popularity of a track is a value between 0 and 100, with 100 being the most popular. The popularity is calculated by algorithm and is based, in the most part, on the total number of plays the track has had and how recent those plays are"
+* song_lyrics (chr): the lyrics of the song scraped from Genius and Vagalume
+* class (chr): the class of the song (either protest or Young Guard) according to the definition presented in the intro
+* danceability (num): provided by the Spotify API, "a value of 0.0 is least danceable and 1.0 is most danceable."
+* energy (num): provided by the Spotify API, "energy is a measure from 0.0 to 1.0 and represents a perceptual measure of intensity and activity"
+* key (int): provided by the Spotify API, "the estimated overall key of the track"
+* loudness (int): provided by the Spotify API, "the overall loudness of a track in decibels (dB)"
+* mode 
+* speechiness (num): provided by the Spotify API, "float	Speechiness detects the presence of spoken words in a track"
+* acousticness (num): provided by the Spotify API, "A confidence measure from 0.0 to 1.0 of whether the track is acoustic"
+* instrumentalness (num): provided by the Spotify API, "predicts whether a track contains no vocals"
+* liveness (num): provided by the Spotify API, "detects the presence of an audience in the recording. . Higher liveness values represent an increased probability that the track was performed live"
+* valence (num): provided by the Spotify API, "a measure from 0.0 to 1.0 describing the musical positiveness conveyed by a track"
+* tempo (num): provided by the Spotify API, "the overall estimated tempo of a track in beats per minute"
+* id (chr): the Spotify ID for the artist
+* duration_ms: provided by the Spotify API, "the duration of the track in milliseconds"
+* time_signature (int)
+* artist_genres (chr): provided by the Spotify API, "a list of the genres the artist is associated with
+* artist_name (chr): the name of the artist
+* artist_photo: (chr): url to the photo of the artist
+* artist_popularity (int): provided by the Spotify API, "the value will be between 0 and 100, with 100 being the most popular. "
+* artist_sp_followers (int):  542214 542214 542214 299597 829961 532021 542214 16490 2440436 299597
+```{r echo=FALSE}
 music = read.csv("brz_dictatorship.csv", as.is=TRUE)
+print("Number of dimensions in our dataset (read ")
 dim(music)
-str(music)
 ```
 Create corpus for text mining
 ```{r}
@@ -241,81 +264,115 @@ docs <- tm_map(docs, removeWords, c("mim", "pra", "vai"))
 ```
 
 # Descriptive Plots & Summary Information
-(Plots should be clearly labeled, well formatted,and display an aesthetic sense.)
-Examine correlations between continuous variables
-
-```{r}
+First, I plotted a word cloud with the most frequent words for each class of music. Uncensored music had much more positive lyrics, with words such as love, romance and joy standing out (Figure 4), whereas protest music had more descriptive words such as violence, blood, etc (Figure 5). Then I performed ANOVA across four main song features, namely speechiness, energy, danceability and valence. As I imagined, protest music had higher speechiness given that the protest musicians prioritized the content of the message over form or harmonic features, whereas uncensored music had higher valence, danceability and energy. These characteristics were also in line with the insights gained from the historical study given that the Young Guard were known for their sappy songs that were popular in parties and bars (Table 1). All p-values were significant (p < 0.05).
+ 
+```{r echo=FALSE}
 library("ggplot2")
 # 1. Open jpeg file
-jpeg("valence_bp.jpeg", width = 350, height = 350)
 boxplot(valence ~ class, data=music, col = 'yellow', main = "Valence by Class", ylab = "Valence")
 #calculate means using the tapply function - could also use the by function
 means <- tapply(music$valence, music$class, mean)
 points(means, col = "red", pch = 19, cex = 1.2)
 text(x=c(1:5), y=means+.2, labels = round(means,2))
-dev.off()
 
-jpeg("speechiness_bp.jpeg", width = 350, height = 350)
 boxplot(speechiness ~ class, data=music, col = 'green', main = "Speechiness by Class", ylab = "Speechiness")
 #calculate means using the tapply function - could also use the by function
 means <- tapply(music$speechiness, music$class, mean)
 points(means, col = "red", pch = 19, cex = 1.2)
 text(x=c(1:5), y=means+.2, labels = round(means,2))
-dev.off()
 
-jpeg("energy.jpeg", width = 350, height = 350)
 boxplot(energy ~ class, data=music, col = 'blue', main = "Energy by Class", ylab = "Energy")
 #calculate means using the tapply function - could also use the by function
 means <- tapply(music$energy, music$class, mean)
 points(means, col = "red", pch = 19, cex = 1.2)
 text(x=c(1:5), y=means+.2, labels = round(means,2))
-dev.off()
 
-jpeg("danceability.jpeg", width = 400, height = 400)
 boxplot(danceability ~ class, data=music, col = 'pink', 
         main = "Danceability by Class", ylab = "Danceability")
 #calculate means using the tapply function - could also use the by function
 means <- tapply(music$danceability, music$class, mean)
 points(means, col = "red", pch = 19, cex = 1.2)
 text(x=c(1:5), y=means+.2, labels = round(means,2))
-dev.off()
+
+
+
+boxplot(log(speechiness) ~ class, data=music, col = 'green', main = "Speechiness by Class", ylab = "Speechiness")
+#calculate means using the tapply function - could also use the by function
+means <- tapply(log(music$speechiness), music$class, mean)
+points(means, col = "red", pch = 19, cex = 1.2)
+text(x=c(1:5), y=means+.2, labels = round(means,2))
+
 ```
+From the boxplots above, it seems that there is visual evidence for a significant differences between the two classes of music (Jovem Guarda and Protest). Let's conduct some t-tests to evaluate if these differences are significant.
+```{r echo=FALSE}
+(test1 <- t.test(valence ~ class, data=music)$conf.int)
+(test2 <- t.test(speechiness ~ class, data=music)$conf.int)
+(test3 <- t.test(energy ~ class, data=music)$conf.int)
+(test4 <- t.test(danceability ~ class, data=music)$conf.int)
 
-```{r}
-print("Means by Music Class")
-tapply(music$valence, music$class, mean)
-
-print("SD by Class")
-(sds <- tapply(music$valence, music$class, sd))
-
-#Check ratio of largest to smallest sample sd
-print("Ratio of Max/Min Sample SD")
-round(max(sds)/min(sds),1)
 ```
+```{r echo=FALSE}
+N <- 10000
+diffValence <- rep(NA, N)
+set.seed(1)    #This is so we get same results every time
 
-```{r}
-print("Means by Music Class")
-tapply(music$speechiness, music$class, mean)
+for (i in 1:N) {
+  sA <- sample(music$valence[music$class == "Protest"],
+               sum(music$class == "Protest"), replace = TRUE)
+  sB <- sample(music$valence[music$class == "Jovem Guarda"],
+               sum(music$class == "Jovem Guarda"), replace = TRUE)
+  diffValence[i] <-  mean(sB) - mean(sA)
+}
 
-print("SD by Class")
-(sds <- tapply(music$speechiness, music$class, sd))
+boot_ci <- quantile(diffValence, c(0.025, 0.975))
 
-#Check ratio of largest to smallest sample sd
-print("Ratio of Max/Min Sample SD")
-round(max(sds)/min(sds),1)
+#Make histogram of bootstrap sample means
+hist(diffValence, col = "blue", main = "Bootstrapped Sample Means Diff in Valence", xlab = "Valence", breaks = 50)
+
+#Add lines to histogram for CI's
+abline(v=boot_ci,lwd=3, col="red")
+abline(v=test1,lwd=3, col="green", lty = 2)
+legend(48,600, c("Original CI","Boot CI"), lwd=3, col = c("green","red"), lty = c(2,1))
+
+
 ```
-Kruskall-Wallis
-```{r}
-kruskal.test(music$speechiness ~ as.factor(music$class))
-summary.aov(aov(music$speechiness ~ as.factor(music$class)))
+```{r echo=FALSE}
+#Function to get permutation test p-values for correlation
+
+options(scipen=999)
+permCor <- function(x, y, n_samp = 10000, plot = T){
+   corResults <- rep(NA, n_samp)
+   for (i in 1:n_samp){
+      corResults[i] <- cor(x, sample(y))
+   }
+   pval <- mean(abs(corResults) >= abs(cor(x,y)))
+   if (plot == T){
+      #Make histogram of permuted correlations
+      hist(corResults, col = "yellow", main = "", xlab = "Correlations", breaks = 50,
+           xlim = range(corResults,cor(x,y)))
+      mtext("Permuted Sample Correlations", cex = 1.2, line = 1)
+      mtext(paste("Permuted P-value =",round(pval,5)), cex = 1, line = 0)
+      abline(v = cor(x,y), col="blue", lwd=3)
+      text(cor(x,y)*1.05, 0,paste("Actual Correlation =", round(cor(x,y),2)),srt = 90, adj = 0)
+   }
+   if (plot == F){
+      return(round(pval,5))
+   }  
+}
+
+#Get permutation p-value, skip the plot
+#magnitude of strength between two continou avriables,. did we seee a samplec orrelation just by chance? 
+#dcoukld that happenn just by chance? sample correlation is 1,could we have somtthing as large as thanb y chance? if correlation  is0 , it is arbitrary which value 
+# 10000 times, we never saw a correlation by .2 jkust by chance, our actula is .5
+permCor(music$valence,music$danceability)
 ```
 
 ## Basic tests with the different classes
 
 ## Visualizing Correlations
-Your first task is to visually examine the correlations with the `corrplot.mixed`.
+Examine the correlations with the `corrplot.mixed`.
 
-```{r}
+```{r echo=FALSE}
 
 #Load the corrplot package
 library(corrplot)
@@ -333,6 +390,7 @@ maxloc <- which(cor1 == max(cor1[cor1<1]), arr.ind = TRUE)
 
 #get the column names of the two variables with highest correlation by index
 #note that maxloc[2, ] is the same as maxloc[1, ], but flipped
+print("The two column names of the two variables with the highest correlation:")
 names(df)[maxloc[1,]]
 
 #Create an object called sigcorr that has the results of cor.mtest for columns 10-23 of the crime data.  Use 95% CI.
@@ -353,7 +411,8 @@ corrplot.mixed(cor1,
 
 Now let's examine more closely the correlation between the two variables with highest correlation.
 
-```{r}
+```{r echo=FALSE}
+# 
 plot(jitter(loudness) ~ jitter(energy), 
      data=df,
      xlab="Song Energy",
@@ -368,6 +427,7 @@ By adding a small amount of random normally distributed noise, we can see observ
 We are now going to proceed with performing stepwise regression. In particular, we're going to fit a model that looks at possible predictors of the class of the song.   To do this, I'm making a new dataset called `music2` which contains the relevant columns (notice I'm putting the response variable FIRST).  Be sure to remove the option `eval = F`.
 
 ```{r}
+#multicolinaeartiy issue; s
 music2 <- music[,c(5, 8:18)]
 music2 <- na.omit(music2)
 
@@ -449,7 +509,7 @@ source("http://www.reuningscherer.net/s&ds230/Rfuncs/regJDRS.txt")
 
 myResPlots(modfin,"Model for Song Popularity")
 ```
-
+Model seems tohave good fit, no evidence of heteroskedasticity,residuals seem to be approximately normallydistributed, although there is evidence that it is not normal distribution
 ## Lyric Analysis
 Inspired by the analysis conducted by (http://www.sthda.com/english/wiki/text-mining-and-word-cloud-fundamentals-in-r-5-simple-steps-you-should-know)
 ```{r}
@@ -510,6 +570,12 @@ barplot(d_jg[1:10,]$freq, las = 2, names.arg = d_jg[1:10,]$word,
 barplot(d_protest[1:10,]$freq, las = 2, names.arg = d_protest[1:10,]$word,
         col ="lightblue", main ="Most frequent words for Protest music",
         ylab = "Word frequencies")
+
 ```
 
-## Classification
+```{r}
+
+
+
+```
+
