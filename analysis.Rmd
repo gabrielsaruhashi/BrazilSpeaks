@@ -11,16 +11,15 @@ knitr::opts_chunk$set(echo = TRUE)
 ```
 
 # Intro
-On April 1, 1964, the military organized a coup d’état that overthrew the government of president João Goulart. That day marked the beginning of the Military Dictatorship that lasted for twenty-one years. Under the pretext of eliminating the growing Communist threaT suppressed freedom of speech and imposed rigorous censorship over the all forms of media. In the late 60s, with the popularization of television and radio stations, music began to have a lot of influence over society and, for this reason, it was heavily monitored by the regime’s censors. On the one hand, there was a group of musicians that simply conformed to the oppressive rules of the regime. Inspired by the soft rock melodies by the Beatles, they avoided political themes and made fortunes composing songs about love and trivial, middle-class concerns. Yet, on the other hand, a group of musicians stood out in the fight against oppression. Through their music, they conveyed a message of criticism against the regime. Their “protest music” denounced blatant social injustices, mobilized political passions, praised the individual and collective heroes who fought the oppressors. 
-
+On April 1, 1964, the military organized a coup d’état that overthrew the government of president João Goulart. That day marked the beginning of the Military Dictatorship that lasted for twenty-one years. Under the pretext of eliminating the growing Communist threat, the regime suppressed freedom of speech and imposed rigorous censorship over the all forms of media. In the late 60s, with the popularization of television and radio stations, music began to have a lot of influence over society and, for this reason, it was heavily monitored by the regime’s censors. On the one hand, there was a group of musicians that simply conformed to the oppressive rules of the regime. Inspired by the soft rock melodies by the Beatles, they avoided political themes and made fortunes composing songs about love and trivial, middle-class concerns. Yet, on the other hand, a group of musicians stood out in the fight against oppression. Through their music, they conveyed a message of criticism against the regime. Their “protest music” denounced blatant social injustices, mobilized political passions, praised the individual and collective heroes who fought the oppressors. In this project, I will be analyzing this dataset I built 
 
 # DATA
 ## Data Scraping & Collection
-To collect the data,  It requires 
+To collect the data,  I followed the work done by Carocha (2006). I built a Python script that called the Spotify API and ran a data enrichment pielin 
 
-I compiled two Spotify playlists, one for each class of music. Through the Spotify API, I obtained key features of each song, such as speechness, danceability and energy, that are measured in a scale of 0.0 to 1.0 (Figure 3).  However, Spotify does not directly provide the lyrics for each of the songs. To circumvent this limitation, I built a parallel pipeline that, given a song name ands its author, scrapes song lyrics from Genius and Vagalume, two well-known music platform that provide lyrics and song annotations. The procedure yielded a corpus of 280 songs equally divided in the two categories: 140 censored and 140 uncensored songs. 
+I compiled two Spotify playlists, one for each class of music. Through the Spotify API, I obtained key features of each song, such as speechness, danceability and energy, that are measured in a scale of 0.0 to 1.0.  However, Spotify does not directly provide the lyrics for each of the songs. To circumvent this limitation, I built a parallel pipeline that, given a song name ands its author, scrapes song lyrics from Genius and Vagalume, two well-known music platform that provide lyrics and song annotations. The procedure yielded a corpus of 280 songs equally divided in the two categories: 140 censored and 140 uncensored songs. 
 
-```{python python.reticulate=FALSE, eval=FALSE, error=FALSE}
+```{python python.reticulate=FALSE, eval=FALSE, error=FALSE, echo=FALSE}
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 from spotipy.oauth2 import SpotifyClientCredentials
@@ -203,6 +202,7 @@ res_df.to_csv("brz_dictatorship.csv")
 
 ## Overview of the data
 Upon loading the data, we observe the following structure:
+
 * song_sp_uri (chr): a unique identifies  song in the spotify platform
 * song_name (chr): the name of the song
 * song_isrc (chr): the International Standard Recording Code for the song
@@ -233,6 +233,16 @@ music = read.csv("brz_dictatorship.csv", as.is=TRUE)
 print("Number of dimensions in our dataset (row, col):")
 dim(music)
 ```
+```{r}
+unique(music$artist_name[music$class=='Protest'])
+
+jg_artists = unique(music$artist_name[music$class=='Jovem Guarda'])
+
+capture.output(jg_artists, file = "data/artists_jg.txt")
+
+
+```
+
 Create corpus for text mining
 ```{r}
 library(tm)
@@ -461,17 +471,15 @@ total_vars <- dim(music2)[2]
 ```
 Perform best subsets regression using the `regsubsets` function in the `leaps` package.  Save the results in an object called `mod2`.  Get the summary of `mod2` and save the results in an object called `mod2sum`.  Display `mod2sum$which` to get a sense of which variables are included at each step of best subsets.
 
-```{r results="hide"}
+```{r echo = T, results = 'hide'}
 library('leaps')
-
 mod2 <- regsubsets(song_popularity ~ ., data=music2, nvmax=total_vars)
 mod2sum <- summary(mod2)
-mod2sum$which
 ```
 
 Now, let's examine the best model according to highest r-squared, etc.
 ```{r}
-modnum = which.max(mod2sum$rsq)
+(modnum = which.max(mod2sum$rsq))
 
 #Which variables are in model 12
 names(music2)[mod2sum$which[modnum,]][-1]
@@ -479,23 +487,24 @@ names(music2)[mod2sum$which[modnum,]][-1]
 #Fit this model and show results
 musictemp <- music2[,mod2sum$which[modnum,]]
 
-summary(lm(song_popularity ~ .,data=musictemp))
+#summary(lm(song_popularity ~ .,data=musictemp))
 
 ```
+
 ```{r}
-modnum <- which.max(mod2sum$adjr2)
+(modnum <- which.max(mod2sum$adjr2))
 
 #Which variables are in model 12
 names(music2)[mod2sum$which[modnum,]][-1]
 
 #Fit this model and show results
 musictemp <- music2[,mod2sum$which[modnum,]]
-summary(lm(song_popularity ~ .,data=musictemp))
+#summary(lm(song_popularity ~ .,data=musictemp))
 ```
 
 BIC
 ```{r }
-modnum = which.min(mod2sum$bic)
+(modnum = which.min(mod2sum$bic))
 
 #Which variables are in model 12
 names(music2)[mod2sum$which[modnum,]][-1]
@@ -503,7 +512,7 @@ names(music2)[mod2sum$which[modnum,]][-1]
 #Fit this model and show results
 musictemp <- music2[,mod2sum$which[modnum,]]
 
-summary(lm(song_popularity ~ .,data=musictemp))
+#summary(lm(song_popularity ~ .,data=musictemp))
 ```
 CP
 ```{r}
@@ -514,9 +523,10 @@ names(music2)[mod2sum$which[modCP,]][-1]
 
 #Fit this model and show results
 musictemp <- music2[,mod2sum$which[modCP,]]
-summary(lm(song_popularity ~ .,data=musictemp))
+#summary(lm(song_popularity ~ .,data=musictemp))
 ```
 
+Now, let's evaluate the final model we have:
 ```{r}
 musicfinal <- music2[,mod2sum$which[1,]]
 modfin <- lm(song_popularity ~ .,data=musicfinal)
